@@ -81,8 +81,7 @@ void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
 void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
                            , pcl::PointCloud<pcl::PointXYZRGB> cloud_transformed
                            , pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets
-                           , Feature **feature_sets
-                           , pcl::PointCloud<pcl::PointXYZI> intensity_pcl)
+                           , Feature **feature_sets)
 {
 
     float toDegree = 180/M_PI;
@@ -92,7 +91,7 @@ void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
         float x = cloud.points[i].x;
         float y = cloud.points[i].y;
 
-        if(x < 0 || abs(y) > 6)
+        if(x < 0 || abs(y > 1))
             continue;
 
         float r = sqrt(x*x + y*y);
@@ -133,7 +132,6 @@ void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
         }
         velodyne_sets[index_v].points[index_h] = cloud_transformed.points[i];
         feature_sets[index_v][index_h].radius = r_trans;
-        feature_sets[index_v][index_h].intensity = intensity_pcl.points[i].intensity;
     }
 }
 
@@ -225,12 +223,8 @@ void callback_velodyne(const sensor_msgs::PointCloud2ConstPtr &cloud_in)
     copyPointCloud(pcl_cloud_base, cloud_base_rgb);
     cloud_base_rgb.header.frame_id = target_name;
 
-    // get intensity value
-    pcl::PointCloud<pcl::PointXYZI> intensity_pcl;
-    pcl::fromROSMsg(*cloud_in,intensity_pcl);
-
     //seperate_velodyne_cloud(cloud, velodyne_sets, feature_sets);
-    seperate_velodyne_cloud(cloud, cloud_base_rgb, velodyne_sets, feature_sets, intensity_pcl);
+    seperate_velodyne_cloud(cloud, cloud_base_rgb, velodyne_sets, feature_sets);
 
     pcl::PointCloud<pcl::PointXYZRGB> result, result_cross, cloud_free;
 

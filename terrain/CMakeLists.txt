@@ -25,6 +25,7 @@ catkin_package(
 )
 
 include_directories(
+  ~/ext_lib/libsvm-3.21/
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
@@ -46,7 +47,7 @@ src/functions/terrain_function_sturcture.h
 src/functions/xi_functions.h
 )
 
-add_executable(pointshape_based_processor src/pointshape_based_processor.cpp ${PROJECT_INCLUDE})
+add_executable(pointshape_based_processor src/pointshape_based_processor.cpp ~/ext_lib/libsvm-3.21/svm.cpp ${PROJECT_INCLUDE})
 
 target_link_libraries(pointshape_based_processor
   ${OpenCV_LIBRARIES}
