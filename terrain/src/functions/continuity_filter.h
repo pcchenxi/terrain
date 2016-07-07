@@ -114,6 +114,7 @@ class Filter_Continuity
                 , int start_index, int size, float &min_height, float &max_height);
 
         float get_mean_intensity( Feature *feature_set, int start, int end);
+        float get_mean_height( Feature *feature_set, pcl::PointCloud<pcl::PointXYZRGB> velodyne_set, int start, int end);
 
         pcl::PointCloud<pcl::PointXYZRGB> color_one_set(pcl::PointCloud<pcl::PointXYZRGB>  velodyne_sets, Feature  *feature_set);
         pcl::PointCloud<pcl::PointXYZRGB> color_all_sets(pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets, Feature **feature_set);
@@ -127,46 +128,71 @@ pcl::PointCloud<pcl::PointXYZRGB> Filter_Continuity::color_one_set(pcl::PointClo
     float color_step = 255 * 255;
     for(int i = 0; i<720; i++)
     {
-        if(feature_set[i].radius == 0)
+        if(feature_set[i].radius == 0 || velodyne_sets.points[i].r != 0)
             continue;
 
         float continuity_prob = feature_set[i].continuity_prob;
 
         float color = continuity_prob/max_continuity * 255;
 
-        if(continuity_prob == 1)
+        // if(continuity_prob == 1)
+        // {
+        //     velodyne_sets.points[i].r = 200;
+        //     velodyne_sets.points[i].g = 200;
+        //     velodyne_sets.points[i].b = 200;	
+        // }
+        // else if(continuity_prob == 3)
+        // {
+        //     velodyne_sets.points[i].r = 0;
+        //     velodyne_sets.points[i].g = 200;
+        //     velodyne_sets.points[i].b = 0;	
+        // }
+        // else if(continuity_prob == 4)
+        // {
+        //     velodyne_sets.points[i].r = 200;
+        //     velodyne_sets.points[i].g = 200;
+        //     velodyne_sets.points[i].b = 0;	
+        // }
+        // else if(continuity_prob == 5)
+        // {
+        //     velodyne_sets.points[i].r = 200;
+        //     velodyne_sets.points[i].g = 0;
+        //     velodyne_sets.points[i].b = 200;	
+        // }
+        // else 
+        // {
+        //     velodyne_sets.points[i].r = 0;
+        //     velodyne_sets.points[i].g = 0;
+        //     velodyne_sets.points[i].b = 0;	
+        // }
+
+        float threshold_1 = 0.06;
+        float threshold_2 = 0.15;
+        if(continuity_prob < threshold_1)                               // 0.5 for fft[0]   0.04 for fft[1]
         {
-            velodyne_sets.points[i].r = 200;
-            velodyne_sets.points[i].g = 200;
-            velodyne_sets.points[i].b = 200;	
-        }
-        else if(continuity_prob == 3)
-        {
+            float color_b = continuity_prob/threshold_1 * 255;
             velodyne_sets.points[i].r = 0;
-            velodyne_sets.points[i].g = 200;
-            velodyne_sets.points[i].b = 0;	
-        }
-        else if(continuity_prob == 4)
-        {
-            velodyne_sets.points[i].r = 200;
-            velodyne_sets.points[i].g = 200;
-            velodyne_sets.points[i].b = 0;	
-        }
-        else if(continuity_prob == 5)
-        {
-            velodyne_sets.points[i].r = 200;
             velodyne_sets.points[i].g = 0;
-            velodyne_sets.points[i].b = 200;	
+            velodyne_sets.points[i].b = color_b;	
+            // cout << "color: " << color <<endl;
+        }
+        else if(continuity_prob < threshold_2)                             // 1 for fft[0]   0.1 for fft[1]
+        {
+            float color_g = continuity_prob/threshold_2 * 255;
+            velodyne_sets.points[i].r = 255;
+            velodyne_sets.points[i].g = color_g;
+            velodyne_sets.points[i].b = 255;	
         }
         else 
         {
-            velodyne_sets.points[i].r = 0;
+            velodyne_sets.points[i].r = 255;
             velodyne_sets.points[i].g = 0;
             velodyne_sets.points[i].b = 0;	
         }
 
-            // velodyne_sets.points[i].g = g;
-            // velodyne_sets.points[i].b = b;
+        // velodyne_sets.points[i].r = 0;
+        // velodyne_sets.points[i].g = 0;
+        // velodyne_sets.points[i].b = color;	
     }
 
         return velodyne_sets;
@@ -191,6 +217,7 @@ Filter_Continuity::Filter_Continuity(int num_one_set = 720)
     max_continuity = 0;
     point_num_h = num_one_set;
     m_svm_model= svm_load_model( "model/velodyne_4_50000.model" );
+   //     m_svm_model= svm_load_model( "model/velodyne_4_full.model" );
 }
 
 void Filter_Continuity::get_min_max_height(pcl::PointCloud<pcl::PointXYZRGB> velodyne_set
@@ -241,6 +268,27 @@ float Filter_Continuity::get_mean_intensity( Feature *feature_set, int start, in
     return sum_intensity/value_count;
 }
 
+float Filter_Continuity::get_mean_height( Feature *feature_set, pcl::PointCloud<pcl::PointXYZRGB> velodyne_set, int start, int end)
+{
+    float sum_height;
+    float value_count = 0;
+    for(int i = start; i < end; i++)
+    {
+        float r = feature_set[i].radius;
+        if(r == 0)
+            continue;
+
+        value_count ++;
+
+        // cout << " point height: " << velodyne_set[i].z << endl;
+        sum_height += velodyne_set[i].z;
+    }
+
+    // cout << "sum_height: " << sum_height << "  count: " << value_count << endl;
+    float mean_height = sum_height/value_count;
+    return mean_height;
+}
+
 float Filter_Continuity::get_varience_height( Feature *feature_set, pcl::PointCloud<pcl::PointXYZRGB> velodyne_set, int start_index, int size)
 {
     std::vector<float> timevec;
@@ -276,13 +324,22 @@ float Filter_Continuity::get_varience_height( Feature *feature_set, pcl::PointCl
     float cen_intensity  = feature_set[start_index].intensity;
     float var_intensity  = 0;
     float mean_intensity = get_mean_intensity(feature_set, start, end);
+    float mean_height    = get_mean_height(feature_set, velodyne_set, start, end);
+    float cen_height     = velodyne_set.points[start_index].z;
 
+    // cout << "mean height: " << mean_height << endl;
     for(int i = start; i < end; i++)
     {
 	    img_index ++;
         float r = feature_set[i].radius;
         if(r == 0)
             continue;
+        
+        float diff = (r - cen_radius);
+	    float diff_abs = abs(diff);
+
+	    if(diff < 0 && diff_abs > 0.1)
+	        continue;
 
         // height varience
         Vec3 p;
@@ -290,13 +347,21 @@ float Filter_Continuity::get_varience_height( Feature *feature_set, pcl::PointCl
         p.y = velodyne_set.points[i].y;
         p.z = velodyne_set.points[i].z;
 
-        float dist = DistancePtLine(a, b, p);
-        valud_count ++;
-        //cout << dist << endl;
-        if(dist > 0.1)
-            dist = 0.1;
+        // float dist = DistancePtLine(a, b, p);
+        float dist = (cen_height - p.z);
+        float dist_abs = abs(dist);
+        // if(dist_abs > 1)
+        //     continue;
 
-        timevec.push_back(dist);
+
+        valud_count ++;
+        // // cout << "dist: " << dist << " point_h: " << p.z<< endl;
+        // if(dist > 0.1)
+        //     dist = 0.1;
+        // if(dist < -0.1)
+        //     dist = -0.1;            
+
+        timevec.push_back(dist_abs);
         varience += dist*dist;
 
         // intensity varience
@@ -305,7 +370,7 @@ float Filter_Continuity::get_varience_height( Feature *feature_set, pcl::PointCl
         var_intensity        += diff_intensity*diff_intensity;
     }
 
-    if(valud_count != size)
+    if(valud_count < size/2)
         return 0;
 
     varience        = sqrt(varience)/valud_count;
@@ -313,31 +378,34 @@ float Filter_Continuity::get_varience_height( Feature *feature_set, pcl::PointCl
 
     fft.fwd( freqvec,timevec);
 
-    //cout << "5 ";
+    // cout << "5 ";
 
     vector<float> features;
-    for(int i = 0; i < 2; i++)
+    float sum_magnitude = 0;
+    for(int i = 1; i < freqvec.size()/4; i++)
+    // for(int i = 1; i < 6; i++)
     {
         float magnitude = sqrt(freqvec[i].real()*freqvec[i].real() + freqvec[i].imag()*freqvec[i].imag());
-        // cout << i+1 << ":" << magnitude*50 << " ";
-        features.push_back(magnitude*50);
+        sum_magnitude += magnitude;
+        // cout << i+1 << ":" << magnitude << " ";
+        // cout << magnitude << " ";
+        features.push_back(magnitude);
         //cout << freqvec[i] << " real: " << freqvec[i].real() << " imag: " << freqvec[i].imag() << " magnitude: " << magnitude << endl;
     }
     // int index_mid       = freqvec.size()/2;
     // float magnitude_mid = sqrt(freqvec[index_mid].real()*freqvec[index_mid].real() + freqvec[index_mid].imag()*freqvec[index_mid].imag());
-    // cout << magnitude_mid*50 << " ";
-    // // cout << endl;        
-    // cout << cen_intensity << " " << mean_intensity << " " << var_intensity*50 << " " << cen_radius << endl;
-    // cout << "3:" << mean_intensity << " 4:" << var_intensity*50 << endl;
+    // cout << magnitude_mid << " ";
+    // cout << endl;        
+    // cout << cen_intensity << " " << mean_intensity << " " << var_intensity << " " << cen_radius << endl;
+    // cout << "3:" << mean_intensity << " 4:" << varience << endl;
    
-    features.push_back(mean_intensity);
-    features.push_back(var_intensity*50);
+    // features.push_back(mean_intensity);
+    // features.push_back(varience);
 
-    int type = SvmPredict(m_svm_model, features);
+    // int type = SvmPredict(m_svm_model, features);
 
-    //cout << valud_count << " varience: " << varience << endl;
-    //return feature_set[start_index].intensity * varience;
-    return type;
+    float avg_magnitude = sum_magnitude/features.size();
+    return sum_magnitude; // fft[0] fft[1] mean_intensity varience
 }
 
 float Filter_Continuity::get_varience( Feature *feature_set, int start_index, int size)
@@ -373,9 +441,9 @@ float Filter_Continuity::get_varience( Feature *feature_set, int start_index, in
 	    if(diff < 0 && diff_abs > 0.1)
 	        continue;
 
-        if(diff_abs > 0.2)
+        if(diff_abs > 0.4)
         {
-            diff = 0.2;
+            diff = 0.4;
           //  break;
         }
 	    varience += diff*diff;
@@ -417,10 +485,10 @@ Feature * Filter_Continuity::filtering_one_set(pcl::PointCloud<pcl::PointXYZRGB>
     int pre_index = 0;
     float color_step = 255 * 255;
 
-    for(int i = 0; i < velodyne_set.points.size(); i = i+4)
+    for(int i = 0; i < velodyne_set.points.size(); i = i+1)
     {
         float varience = 0;
-        if(feature_set[i].radius == 0)
+        if(feature_set[i].radius == 0 || velodyne_set.points[i].r != 0)
             continue;
 
         float min_height, max_height;
@@ -432,26 +500,22 @@ Feature * Filter_Continuity::filtering_one_set(pcl::PointCloud<pcl::PointXYZRGB>
 	    if(velodyne_set.points[i].z < 2.0)
         {
             //float varience_1 = get_varience(feature_set, i, 7);
-            float varience_2 = get_varience_height(feature_set, velodyne_set, i, 32);
+            float varience_2 = get_varience_height(feature_set, velodyne_set, i, 8);
             varience = varience_2;
-            // cout << i << " " << varience << endl;
+            cout << i << " " << varience << endl;
 	    }
-	//else
-	//    varience = 1;
-        //varience = get_varience_dist(feature_set, velodyne_set, i, 5);
-        //varience = get_varience_height(feature_set, velodyne_set, i, 7);
 
-        //if(varience > 0.18)
-	//    varience = 1;
+
+
+        // if(varience > 0.02)
+	    //     varience = 0.02;
         feature_set[i].continuity_prob = varience;
 
 
         if(varience > max_continuity)
             max_continuity = varience;
 
-        cout << "type: " << varience << endl;
-	//if(varience != 1)
-	  //  cout << i << " " << varience << endl;
+        // cout << "type: " << varience << endl;
     }
 
    // cout << endl;

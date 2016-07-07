@@ -15,7 +15,7 @@ class Filter_Cross_Section
 
         Feature** filtering_all_sets(pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets, Feature **feature_set);
         // pcl::PointCloud<pcl::PointXYZRGB> filtering_one_set(pcl::PointCloud<pcl::PointXYZRGB> velodyne_sets, vector<Feature> feature_set);
-        float filtering_one_set(int index, pcl::PointCloud<pcl::PointXYZRGB> velodyne_set, vector<Feature> feature_set);
+        float filtering_one_set(pcl::PointXYZRGB c_point, float c_radius, pcl::PointCloud<pcl::PointXYZRGB> velodyne_set, vector<Feature> feature_set);
 
         pcl::PointCloud<pcl::PointXYZRGB> color_one_set(pcl::PointCloud<pcl::PointXYZRGB>  velodyne_sets, Feature  *feature_set);
         pcl::PointCloud<pcl::PointXYZRGB> color_all_sets(pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets, Feature **feature_set);
@@ -62,39 +62,28 @@ Feature ** Filter_Cross_Section::filtering_all_sets(pcl::PointCloud<pcl::PointXY
     pcl::PointCloud<pcl::PointXYZRGB> point_all;
     pcl::PointCloud<pcl::PointXYZRGB> point_selected;
 
-    for(int i = 0; i < 720; i = i+1)
+    for(int i = 1; i < 720-1; i = i+1)
     {
         pcl::PointCloud<pcl::PointXYZRGB> point_selected;
         pcl::PointCloud<pcl::PointXYZRGB> result;
+
         vector<Feature> point_feature;
         point_feature.clear();
 
         for(int j = 0; j < 16; j ++)
         {
             point_selected.points.push_back(velodyne_sets[j].points[i]);
+            point_selected.points.push_back(velodyne_sets[j].points[i-1]);
+            point_selected.points.push_back(velodyne_sets[j].points[i+1]);
             point_feature.push_back(feature_set[j][i]);
-
-            //cout << velodyne_sets[j].points[i].x << "  " << velodyne_sets[j].points[i].y << "  " << velodyne_sets[j].points[i].z << endl;
+            point_feature.push_back(feature_set[j][i-1]);
+            point_feature.push_back(feature_set[j][i+1]);
         }
 
-//        for(int j = 0; j < 16; j ++)
-//        {
-//            if(i > 718)
-//                continue;
-//
-//            point_selected.points.push_back(velodyne_sets[j].points[i+1]);
-//            point_feature.push_back(feature_set[j][i+1]);
-//        }
-
-        for(int j = 0; j < point_selected.points.size(); j ++)
+        for(int j = 0; j < 16; j ++)
         {
-            float prob = filtering_one_set(j, point_selected, point_feature);
-            if(j < 16)
-                feature_set[j][i].cross_section_prob = prob;
-//            else
-//            {
-//                feature_set[j-16][i+1].cross_section_prob = prob;
-//            }
+            float prob = filtering_one_set(velodyne_sets[j].points[i], feature_set[j][i].radius, point_selected, point_feature);
+            feature_set[j][i].cross_section_prob = prob;
         }
     }
 
@@ -125,32 +114,39 @@ float get_difficult_value(float diff_height)
     return difficulity;
 }
 
-float Filter_Cross_Section::filtering_one_set(int index, pcl::PointCloud<pcl::PointXYZRGB> velodyne_set, vector<Feature> feature_set)
+float Filter_Cross_Section::filtering_one_set(pcl::PointXYZRGB c_point, float c_radius, pcl::PointCloud<pcl::PointXYZRGB> velodyne_set, vector<Feature> feature_set)
 {
     float color_step = 255 * 255;
     float sum_d = 0;
 
-    float c_radius  = feature_set[index].radius;
-    float c_x       = velodyne_set.points[index].x;
-    float c_y       = velodyne_set.points[index].y;
-    float c_z       = velodyne_set.points[index].z;
-
-    pcl::PointXYZRGB c_point = velodyne_set.points[index];
+    float c_x       = c_point.x;
+    float c_y       = c_point.y;
+    float c_z       = c_point.z;
 
     for(int i = 0; i < velodyne_set.points.size(); i++ )
     {
         pcl::PointXYZRGB point = velodyne_set.points[i];
-        float diff_z = abs(c_z - point.z);
+        float diff_z     = point.z - c_z;
+        float diff_z_abs = abs(diff_z);
 
-        float radius = feature_set[i].radius;
-        float diff_r = abs(radius - c_radius);
+        float radius     = feature_set[i].radius;
+        float diff_r     = abs(radius - c_radius);
 
-        if(diff_r < 0.5 && diff_z > diff_r)
+        if(diff_r < 0.5 && diff_z > 0.4 && diff_z < 2.0 && diff_z > diff_r)
         {
             sum_d = 1;
             break;
         }
-
+        if(diff_r < 0.5 && diff_z < -0.4)
+        {
+            sum_d = 1;
+            break;
+        }
+        // if(diff_r < 0.3 && diff_z_abs < 0.4 && diff_z_abs > 0.2 && diff_z > diff_r)   
+        // {
+        //     sum_d = 1;
+        //     break;
+        // }
 //
 //        //cout << "r1: " << radius << "  r2: " << c_radius << endl;
 //

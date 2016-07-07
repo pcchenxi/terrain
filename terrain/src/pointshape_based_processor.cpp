@@ -236,11 +236,11 @@ void callback_velodyne(const sensor_msgs::PointCloud2ConstPtr &cloud_in)
 
 
     //////////////////////////////////////////////////////////////////////////////////////////////////
-    feature_sets = filter_continutiy.filtering_all_sets(velodyne_sets, feature_sets);
-    //feature_sets = filter_crosssection.filtering_all_sets(velodyne_sets, feature_sets);
+    feature_sets = filter_crosssection.filtering_all_sets(velodyne_sets, feature_sets);
+    result = filter_crosssection.color_all_sets(velodyne_sets, feature_sets);
 
+    feature_sets = filter_continutiy.filtering_all_sets(velodyne_sets, feature_sets);
     result       = filter_continutiy.color_all_sets(velodyne_sets, feature_sets);
-    //result = filter_crosssection.color_all_sets(velodyne_sets, feature_sets);
     //////////////////////////////////////////////////////////////////////////////////////////////////
     result.header.frame_id =  target_name;
     result_cross.header.frame_id =  target_name;
