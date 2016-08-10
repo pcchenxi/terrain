@@ -12,7 +12,9 @@ class Filter_Cross_Section
 {
     public:
         float max_cross;
+        int point_num_h;
 
+        Filter_Cross_Section(int num_one_set );
         Feature** filtering_all_sets(pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets, Feature **feature_set);
         // pcl::PointCloud<pcl::PointXYZRGB> filtering_one_set(pcl::PointCloud<pcl::PointXYZRGB> velodyne_sets, vector<Feature> feature_set);
         float filtering_one_set(pcl::PointXYZRGB c_point, float c_radius, pcl::PointCloud<pcl::PointXYZRGB> velodyne_set, vector<Feature> feature_set);
@@ -22,9 +24,14 @@ class Filter_Cross_Section
 
 };
 
+Filter_Cross_Section::Filter_Cross_Section(int num_one_set)
+{
+    point_num_h = num_one_set;
+}
+
 pcl::PointCloud<pcl::PointXYZRGB> Filter_Cross_Section::color_one_set(pcl::PointCloud<pcl::PointXYZRGB> velodyne_sets, Feature *feature_set)
 {
-    for(int i = 0; i<720; i++)
+    for(int i = 0; i<point_num_h; i++)
     {
         if(feature_set[i].radius == 0)
             continue;
@@ -62,7 +69,7 @@ Feature ** Filter_Cross_Section::filtering_all_sets(pcl::PointCloud<pcl::PointXY
     pcl::PointCloud<pcl::PointXYZRGB> point_all;
     pcl::PointCloud<pcl::PointXYZRGB> point_selected;
 
-    for(int i = 1; i < 720-1; i = i+1)
+    for(int i = 1; i < point_num_h-1; i = i+1)
     {
         pcl::PointCloud<pcl::PointXYZRGB> point_selected;
         pcl::PointCloud<pcl::PointXYZRGB> result;
@@ -116,11 +123,11 @@ float get_difficult_value(float diff_height)
 
 float Filter_Cross_Section::filtering_one_set(pcl::PointXYZRGB c_point, float c_radius, pcl::PointCloud<pcl::PointXYZRGB> velodyne_set, vector<Feature> feature_set)
 {
-    float color_step = 255 * 255;
+
     float sum_d = 0;
 
-    float c_x       = c_point.x;
-    float c_y       = c_point.y;
+    // float c_x       = c_point.x;
+    // float c_y       = c_point.y;
     float c_z       = c_point.z;
 
     for(int i = 0; i < velodyne_set.points.size(); i++ )

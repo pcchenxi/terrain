@@ -10,6 +10,9 @@ struct Feature
   float normal;
   float sum;
   float slope;
+  float intensity;
+  float reformed_height;
+  float point_slope;
 };
 
 #endif

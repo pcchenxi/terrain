@@ -8,13 +8,14 @@
 
 #include <sensor_msgs/point_cloud_conversion.h>
 
-ros::Publisher  pub_continuity, pub_cross, pub_ground, pub_costmap, pub_ground_obstacle, pub_free;
-Filter_Continuity       filter_continutiy;
-Filter_Cross_Section    filter_crosssection;
 
 tf::TransformListener* tfListener = NULL;
 float sensor_height = 1.0;
-int point_num_h = 720;
+int point_num_h = 360*4;
+
+ros::Publisher  pub_continuity, pub_cross, pub_ground, pub_costmap, pub_ground_obstacle, pub_free;
+Filter_Continuity       filter_continutiy(point_num_h);
+Filter_Cross_Section    filter_crosssection(point_num_h);
 
 void publish(ros::Publisher pub, pcl::PointCloud<pcl::PointXYZRGB> cloud, int type = 2)
 {
@@ -81,7 +82,8 @@ void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
 void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
                            , pcl::PointCloud<pcl::PointXYZRGB> cloud_transformed
                            , pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets
-                           , Feature **feature_sets)
+                           , Feature **feature_sets
+                           , pcl::PointCloud<pcl::PointXYZI> intensity_pcl)
 {
 
     float toDegree = 180/M_PI;
@@ -91,7 +93,7 @@ void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
         float x = cloud.points[i].x;
         float y = cloud.points[i].y;
 
-        if(x < 0 || abs(y > 1))
+        if(abs(x) > 5 || abs(y) > 5)
             continue;
 
         float r = sqrt(x*x + y*y);
@@ -113,7 +115,7 @@ void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
         if(mod > 1)
             index_v += 1;
 
-        //16x720
+        //16 x point_num_h
         if(index_v < 0) {
             //std::cerr << "index_v = " << index_v << std::endl;
             index_v = 0;
@@ -126,12 +128,13 @@ void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
             //std::cout << "index_h = " << index_h << std::endl;
             index_h = 0;
         }
-        if(index_h > 719) {
+        if(index_h > point_num_h-1) {
             //std::cout << "index_h = " << index_h << std::endl;
-            index_h = 719;
+            index_h = point_num_h-1;
         }
         velodyne_sets[index_v].points[index_h] = cloud_transformed.points[i];
         feature_sets[index_v][index_h].radius = r_trans;
+        feature_sets[index_v][index_h].intensity = intensity_pcl.points[i].intensity;
     }
 }
 
@@ -176,13 +179,14 @@ void callback_velodyne(const sensor_msgs::PointCloud2ConstPtr &cloud_in)
     tf::StampedTransform velodyne_to_base;
 
     string target_name = "/base_link";
+    // cout << cloud_in->header.frame_id << endl;
     //string target_name = "/odom";
 
     //tfListener->waitForTransform(target_name, cloud_in->header.frame_id, ros::Time::now(), ros::Duration(2.0));
     try {
         tfListener->lookupTransform(target_name, cloud_in->header.frame_id, ros::Time(0), velodyne_to_base);
     }catch(std::exception & e) {
-        ROS_WARN_STREAM("TF error! " << e.what());
+       // ROS_WARN_STREAM("TF error! " << e.what());
         return ;
     }
 
@@ -198,13 +202,13 @@ void callback_velodyne(const sensor_msgs::PointCloud2ConstPtr &cloud_in)
     //pcl::PointCloud<pcl::PointXYZRGB> feature_sets[16];
     for(int i = 0; i<16; i++)
     {
-        velodyne_sets[i].points.resize(720);
-        feature_sets[i] = new Feature[720];
-        //feature_sets[i].points.resize(720);
+        velodyne_sets[i].points.resize(point_num_h);
+        feature_sets[i] = new Feature[point_num_h];
+        //feature_sets[i].points.resize(point_num_h);
     }
 
     for(int i = 0; i< 16; i++)
-        for(int j = 0; j < 720; j++)
+        for(int j = 0; j < point_num_h; j++)
         {
             feature_sets[i][j].radius = 0;
             feature_sets[i][j].continuity_prob = 0;
@@ -223,30 +227,38 @@ void callback_velodyne(const sensor_msgs::PointCloud2ConstPtr &cloud_in)
     copyPointCloud(pcl_cloud_base, cloud_base_rgb);
     cloud_base_rgb.header.frame_id = target_name;
 
+    // get intensity value
+    pcl::PointCloud<pcl::PointXYZI> intensity_pcl;
+    pcl::fromROSMsg(*cloud_in,intensity_pcl);
+
     //seperate_velodyne_cloud(cloud, velodyne_sets, feature_sets);
-    seperate_velodyne_cloud(cloud, cloud_base_rgb, velodyne_sets, feature_sets);
+    seperate_velodyne_cloud(cloud, cloud_base_rgb, velodyne_sets, feature_sets, intensity_pcl);
 
-    pcl::PointCloud<pcl::PointXYZRGB> result, result_cross, cloud_free;
+    pcl::PointCloud<pcl::PointXYZRGB> result, cloud_free, reformed_height;
 
+    for(int i = 0; i < point_num_h; i++)
+    {
+        if(velodyne_sets[0][i].z != 0)
+            cout << velodyne_sets[0][i].z*100/2.54 << endl;
+    }    
+    // //////////////////////////////////////////////////////////////////////////////////////////////////
+     feature_sets = filter_crosssection.filtering_all_sets(velodyne_sets, feature_sets);
+     result = filter_crosssection.color_all_sets(velodyne_sets, feature_sets);
 
-    //////////////////////////////////////////////////////////////////////////////////////////////////
-    feature_sets = filter_continutiy.filtering_all_sets(velodyne_sets, feature_sets);
-    //feature_sets = filter_crosssection.filtering_all_sets(velodyne_sets, feature_sets);
-
-    result       = filter_continutiy.color_all_sets(velodyne_sets, feature_sets);
-    //result = filter_crosssection.color_all_sets(velodyne_sets, feature_sets);
-    //////////////////////////////////////////////////////////////////////////////////////////////////
-    result.header.frame_id =  target_name;
-    result_cross.header.frame_id =  target_name;
+     feature_sets = filter_continutiy.filtering_all_sets(velodyne_sets, feature_sets);
+    result       = filter_continutiy.color_all_sets(velodyne_sets, feature_sets, reformed_height);
+    // //////////////////////////////////////////////////////////////////////////////////////////////////
 
     pcl::PointCloud<pcl::PointXYZRGB> costmap_cloud = generate_costmap_cloud(result, cloud_free);
 
     costmap_cloud.header.frame_id = target_name;
     cloud_free.header.frame_id = target_name;
+    result.header.frame_id =  target_name;
 
+    // cout << "frame: " <<result.header.frame_id << endl;
     publish(pub_ground, costmap_cloud);
-    publish(pub_free,cloud_free);
-    publish(pub_ground_obstacle,result);
+    publish(pub_free, cloud_free);
+    publish(pub_ground_obstacle, result);
 
 
     for(int i = 0; i<16; i++)
@@ -262,7 +274,8 @@ int main(int argc, char** argv){
     ros::NodeHandle node;
 
 
-    //ros::Subscriber sub_velodyne_right = node.subscribe<sensor_msgs::PointCloud2>("/velodyne_points_right", 1, callback_velodyne);
+    // ros::Subscriber sub_velodyne_right = node.subscribe<sensor_msgs::PointCloud2>("/velodyne_points_right", 1, callback_velodyne);
+    // ros::Subscriber sub_velodyne_left = node.subscribe<sensor_msgs::PointCloud2>("/velodyne_points_left", 1, callback_velodyne);
     ros::Subscriber sub_velodyne_left  = node.subscribe<sensor_msgs::PointCloud2>("/velodyne_points", 1, callback_velodyne);
 
     pub_continuity = node.advertise<sensor_msgs::PointCloud2>("/continuity_filtered", 1);

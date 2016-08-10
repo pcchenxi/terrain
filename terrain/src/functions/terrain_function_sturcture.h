@@ -11,6 +11,8 @@ struct Feature
   float sum;
   float slope;
   float intensity;
+  float reformed_height;
+  float ver_acc;
 };
 
 #endif
