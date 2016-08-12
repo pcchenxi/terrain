@@ -8,7 +8,7 @@
 #include <sensor_msgs/point_cloud_conversion.h>
 
 int point_num_h      = 260*4;;
-Filter_Continuity filter_continutiy(point_num_h);
+Filter_Continuity filter_continutiy(point_num_h, 0.1, 0.1);
 Filter_Cross_Section filter_crosssection(point_num_h);
 
 class Pointshape_Processor

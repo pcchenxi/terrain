@@ -139,12 +139,17 @@ float Filter_Cross_Section::filtering_one_set(pcl::PointXYZRGB c_point, float c_
         float radius     = feature_set[i].radius;
         float diff_r     = abs(radius - c_radius);
 
-        if(diff_r < 0.5 && diff_z > 0.4 && diff_z < 2.0 && diff_z > diff_r)
+        if(diff_r < 0.3 && diff_z_abs > 0.4 && diff_z_abs < 2.0 && diff_z_abs > diff_r)
         {
             sum_d = 1;
             break;
         }
-        if(diff_r < 0.5 && diff_z < -0.4)
+        if(diff_r < 0.3 && diff_z < -0.4)
+        {
+            sum_d = 1;
+            break;
+        }
+        if(diff_r < 0.3 && diff_r < 0.01 && feature_set[i].cross_section_prob != 0)
         {
             sum_d = 1;
             break;

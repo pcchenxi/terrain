@@ -93,7 +93,7 @@ void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
         float x = cloud.points[i].x;
         float y = cloud.points[i].y;
 
-       if(abs(x) > 5 || abs(y) > 5)
+       if(x < 1 || x > 5 || abs(y) > 5)
            continue;
 
     //    if(x <  0 || abs(y) > 0.5)
@@ -216,6 +216,14 @@ void callback_velodyne(const sensor_msgs::PointCloud2ConstPtr &cloud_in)
             feature_sets[i][j].continuity_prob = 0;
             feature_sets[i][j].cross_section_prob = 0;
             feature_sets[i][j].sum = 0;
+
+            feature_sets[i][j].mean_height = 0;
+            feature_sets[i][j].mean_slope = 0;
+            feature_sets[i][j].height_variance = 0;
+            feature_sets[i][j].vertical_acc = 0;
+            feature_sets[i][j].roughness = 0;
+            feature_sets[i][j].max_height_diff = 0;
+            // feature_sets[i][j].is_selected = false;
         }
 
     // for velodyne frame, used for point classification
@@ -244,10 +252,10 @@ void callback_velodyne(const sensor_msgs::PointCloud2ConstPtr &cloud_in)
     //         cout << velodyne_sets[0][i].z*100/2.54 << endl;
     // }    
     // //////////////////////////////////////////////////////////////////////////////////////////////////
-     feature_sets = filter_crosssection.filtering_all_sets(velodyne_sets, feature_sets);
-     result = filter_crosssection.color_all_sets(velodyne_sets, feature_sets);
+    feature_sets = filter_crosssection.filtering_all_sets(velodyne_sets, feature_sets);
+    result = filter_crosssection.color_all_sets(velodyne_sets, feature_sets);
 
-     feature_sets = filter_continutiy.filtering_all_sets(velodyne_sets, feature_sets);
+    feature_sets = filter_continutiy.filtering_all_sets(velodyne_sets, feature_sets);
     result       = filter_continutiy.color_all_sets(velodyne_sets, feature_sets, reformed_height);
     // //////////////////////////////////////////////////////////////////////////////////////////////////
 

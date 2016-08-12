@@ -3,16 +3,24 @@
 
 struct Feature
 {
-  float radius;
   float continuity_prob;
   float cross_section_prob;
   float histogram_prob;
   float normal;
   float sum;
-  float slope;
   float intensity;
   float reformed_height;
-  float ver_acc;
+
+/////////////////////////////////////////////////
+  // bool  is_selected;
+  float radius;
+  float mean_height;
+  float mean_slope;
+  float height_variance;
+  float vertical_acc;
+  float roughness;
+  float max_height_diff;
+
 };
 
 #endif
