@@ -266,8 +266,8 @@ void callback_velodyne(const sensor_msgs::PointCloud2ConstPtr &cloud_in)
     result.header.frame_id =  target_name;
 
     // cout << "frame: " <<result.header.frame_id << endl;
-    publish(pub_ground, costmap_cloud);
-    publish(pub_free, cloud_free);
+    // publish(pub_ground, costmap_cloud);
+    // publish(pub_free, cloud_free);
     publish(pub_ground_obstacle, result);
 
 
@@ -283,18 +283,20 @@ int main(int argc, char** argv){
 
     ros::NodeHandle node;
 
-
+    float cell_size = 0.2;
+    node.getParam("/cell_size", cell_size);
+    filter_continutiy.set_cell_size(cell_size);
     // ros::Subscriber sub_velodyne_right = node.subscribe<sensor_msgs::PointCloud2>("/velodyne_points_right", 1, callback_velodyne);
     // ros::Subscriber sub_velodyne_left = node.subscribe<sensor_msgs::PointCloud2>("/velodyne_points_left", 1, callback_velodyne);
-    ros::Subscriber sub_velodyne_left  = node.subscribe<sensor_msgs::PointCloud2>("/velodyne_points", 1, callback_velodyne);
+    ros::Subscriber sub_velodyne_left  = node.subscribe<sensor_msgs::PointCloud2>("/points_raw", 1, callback_velodyne);
 
-    pub_continuity = node.advertise<sensor_msgs::PointCloud2>("/continuity_filtered", 1);
-    pub_cross      = node.advertise<sensor_msgs::PointCloud2>("/cross_section_filtered", 1);
-    pub_ground     = node.advertise<sensor_msgs::PointCloud2>("/velodyne_points_ground", 1);
+    // pub_continuity = node.advertise<sensor_msgs::PointCloud2>("/continuity_filtered", 1);
+    // pub_cross      = node.advertise<sensor_msgs::PointCloud2>("/cross_section_filtered", 1);
+    // pub_ground     = node.advertise<sensor_msgs::PointCloud2>("/velodyne_points_ground", 1);
     pub_ground_obstacle = node.advertise<sensor_msgs::PointCloud2>("/ground_obstacle",1);
-    pub_free       = node.advertise<sensor_msgs::PointCloud2>("/velodyne_points_free",1);
+    // pub_free       = node.advertise<sensor_msgs::PointCloud2>("/velodyne_points_free",1);
 
-    pub_costmap    = node.advertise<sensor_msgs::PointCloud>("/costmap_cloud", 1);
+    // pub_costmap    = node.advertise<sensor_msgs::PointCloud>("/costmap_cloud", 1);
 
 
     // ros::Subscriber sub_odom = node.subscribe<geometry_msgs::PoseStamped>("/slam_out_pose", 1, callback_odom);

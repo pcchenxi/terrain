@@ -26,7 +26,7 @@ public:
 
 	pcl::PointCloud<pcl::PointXYZRGB> color_one_set(pcl::PointCloud<pcl::PointXYZRGB>  velodyne_sets, Feature  *feature_set);
 	pcl::PointCloud<pcl::PointXYZRGB> color_all_sets(pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets, Feature **feature_set, pcl::PointCloud<pcl::PointXYZRGB> &cloud_reformed_height);
-
+	void set_cell_size(float cell_size);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	pcl::PointCloud<pcl::PointXYZRGB> reform_cloud_height(pcl::PointCloud<pcl::PointXYZRGB> velodyne_set, Feature *feature_set);
@@ -96,7 +96,13 @@ Filter_Continuity::Filter_Continuity(int num_one_set)
 	point_num_h = num_one_set;
 
 	m_smooth_size = 0.1;
-	m_cell_size   = 0.1;
+	m_cell_size   = 0.2;
+}
+
+void Filter_Continuity::set_cell_size(float cell_size)
+{
+	m_cell_size   = cell_size;
+	cout << "cell_size: " << m_cell_size << endl;
 }
 
 Feature ** Filter_Continuity::filtering_all_sets(pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets, Feature **feature_set)
@@ -340,8 +346,8 @@ void Filter_Continuity::compute_terrain_feature(Feature *feature_set, pcl::Point
 	feature_set[point_index].mean_slope			= get_mean_slope		(feature_set, velodyne_set, point_index, end_index);
 	feature_set[point_index].roughness			= get_roughness			(feature_set, velodyne_set, point_index, end_index);
 
-	// cout << feature_set[point_index].mean_height << " " << feature_set[point_index].height_variance << " " 
-	// << feature_set[point_index].mean_slope << " " << feature_set[point_index].roughness << " " << feature_set[point_index].max_height_diff << endl;
+	cout << feature_set[point_index].mean_height << " " << feature_set[point_index].height_variance << " " 
+	<< feature_set[point_index].mean_slope << " " << feature_set[point_index].roughness << " " << feature_set[point_index].max_height_diff << endl;
 }
 
 Feature* Filter_Continuity::filtering_one_set(pcl::PointCloud<pcl::PointXYZRGB> &velodyne_set, Feature *feature_set)
@@ -356,7 +362,7 @@ Feature* Filter_Continuity::filtering_one_set(pcl::PointCloud<pcl::PointXYZRGB> 
 
 		int end_index;
 		end_index = i + 11;
-		get_windowboundory(feature_set, velodyne_set, 0.2, i, end_index);
+		get_windowboundory(feature_set, velodyne_set, m_cell_size, i, end_index);
 		compute_terrain_feature(feature_set, velodyne_set, i, end_index);
 	}
 	
