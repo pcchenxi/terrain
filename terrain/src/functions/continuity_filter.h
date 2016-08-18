@@ -25,7 +25,7 @@ public:
 	Feature** filtering_all_sets(pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets, Feature **feature_set);
 
 	pcl::PointCloud<pcl::PointXYZRGB> color_one_set(pcl::PointCloud<pcl::PointXYZRGB>  velodyne_sets, Feature  *feature_set);
-	pcl::PointCloud<pcl::PointXYZRGB> color_all_sets(pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets, Feature **feature_set, pcl::PointCloud<pcl::PointXYZRGB> &cloud_reformed_height);
+	pcl::PointCloud<pcl::PointXYZRGB> color_all_sets(pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets, Feature **feature_set, Feature *cloud_feature);
 	void set_cell_size(float cell_size);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -77,14 +77,21 @@ pcl::PointCloud<pcl::PointXYZRGB> Filter_Continuity::color_one_set(pcl::PointClo
 	return velodyne_sets;
 }
 
-pcl::PointCloud<pcl::PointXYZRGB> Filter_Continuity::color_all_sets(pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets, Feature **feature_set, pcl::PointCloud<pcl::PointXYZRGB> &cloud_reformed_height)
+pcl::PointCloud<pcl::PointXYZRGB> Filter_Continuity::color_all_sets(pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets, Feature **feature_set, Feature *cloud_feature)
 {
+	int feature_index = 0;
 	pcl::PointCloud<pcl::PointXYZRGB> result;
 
-	for (int i = 0; i<16; i++)
+	for (int i = 0; i < 16; i++)
 	{
 		velodyne_sets[i] = color_one_set(velodyne_sets[i], feature_set[i]);
 		result += velodyne_sets[i];
+
+		for(int j = 0; j < velodyne_sets[i].points.size(); j++)
+		{
+			cloud_feature[feature_index] = feature_set[i][j];
+			feature_index ++;
+		}
 	}
 
 	return result;
@@ -336,18 +343,18 @@ pcl::PointXYZRGB Filter_Continuity::get_mean_point(Feature *feature_set, pcl::Po
 
 void Filter_Continuity::compute_terrain_feature(Feature *feature_set, pcl::PointCloud<pcl::PointXYZRGB> velodyne_set, int point_index, int end_index)
 {
-	feature_set[point_index].mean_height		= get_mean_height		(feature_set, velodyne_set, point_index, end_index);
-	feature_set[point_index].height_variance	= get_height_variance	(feature_set, velodyne_set, point_index, end_index);
+	// feature_set[point_index].mean_height		= get_mean_height		(feature_set, velodyne_set, point_index, end_index);
+	// feature_set[point_index].height_variance	= get_height_variance	(feature_set, velodyne_set, point_index, end_index);
 	
-	if(feature_set[point_index].height_variance == 0)
-		return;
+	// if(feature_set[point_index].height_variance == 0)
+		// return;
 
-	feature_set[point_index].max_height_diff	= get_height_diff		(feature_set, velodyne_set, point_index, end_index);
+	// feature_set[point_index].max_height_diff	= get_height_diff		(feature_set, velodyne_set, point_index, end_index);
 	feature_set[point_index].mean_slope			= get_mean_slope		(feature_set, velodyne_set, point_index, end_index);
 	feature_set[point_index].roughness			= get_roughness			(feature_set, velodyne_set, point_index, end_index);
 
-	cout << feature_set[point_index].mean_height << " " << feature_set[point_index].height_variance << " " 
-	<< feature_set[point_index].mean_slope << " " << feature_set[point_index].roughness << " " << feature_set[point_index].max_height_diff << endl;
+	// cout << feature_set[point_index].mean_height << " " << feature_set[point_index].height_variance << " " 
+	// << feature_set[point_index].mean_slope << " " << feature_set[point_index].roughness << " " << feature_set[point_index].max_height_diff << endl;
 }
 
 Feature* Filter_Continuity::filtering_one_set(pcl::PointCloud<pcl::PointXYZRGB> &velodyne_set, Feature *feature_set)
@@ -355,9 +362,9 @@ Feature* Filter_Continuity::filtering_one_set(pcl::PointCloud<pcl::PointXYZRGB> 
 
 	velodyne_set = reform_cloud_height(velodyne_set, feature_set);  // smooth height
 
-	for (int i = 0; i < velodyne_set.points.size()-15; i = i + 1)
+	for (int i = 0; i < velodyne_set.points.size()-30; i = i + 1)
 	{
-		if (feature_set[i].radius == 0 || feature_set[i].radius > 10 || velodyne_set.points[i].r != 0)
+		if (feature_set[i].radius == 0 || velodyne_set.points[i].r != 0)
 			continue;
 
 		int end_index;

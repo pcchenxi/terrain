@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 2.8.3)
 project(terrain)
 
 find_package(PCL 1.7 REQUIRED COMPONENTS)
-find_package(OpenCV 2.4.8 REQUIRED COMPONENTS)
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport
@@ -26,18 +25,17 @@ catkin_package(
 
 include_directories(
   ${catkin_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
 )
 
 link_directories(
-  ${OpenCV_LIBRARY_DIRS}
   ${PCL_LIBRARY_DIRS}
 )
 
 add_definitions(${PCL_DEFINITIONS})
 
 set(PROJECT_INCLUDE
+src/pointshape_processor.h
 src/functions/continuity_filter.h
 src/functions/cross_section_filter.h
 src/functions/histogram_filter.h
@@ -46,7 +44,7 @@ src/functions/terrain_function_sturcture.h
 src/functions/xi_functions.h
 )
 
-add_executable(pointshape_based_processor src/pointshape_based_processor.cpp ~/ext_lib/libsvm-3.21/svm.cpp ${PROJECT_INCLUDE})
+add_executable(pointshape_based_processor src/pointshape_based_processor.cpp src/pointshape_processor.h ${PROJECT_INCLUDE})
 
 target_link_libraries(pointshape_based_processor
   ${OpenCV_LIBRARIES}

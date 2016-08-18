@@ -7,16 +7,21 @@
 
 #include <sensor_msgs/point_cloud_conversion.h>
 
-int point_num_h      = 260*4;;
+int point_num_h      = 360*4;;
 Filter_Continuity filter_continutiy(point_num_h);
 Filter_Cross_Section filter_crosssection(point_num_h);
 
 class Pointshape_Processor
 {
     public:
-        float sensor_height = 1.0;
+        float m_cell_size;
+
+        string base_frame_;
+        Feature *cloud_feature;
+
         pcl::PointCloud<pcl::PointXYZRGB> cloud_reformed_height;
-        Pointshape_Processor(int point_num);
+        Pointshape_Processor(int point_num, float cell_size);
+        ~Pointshape_Processor();
         void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
                            , pcl::PointCloud<pcl::PointXYZRGB> cloud_transformed
                            , pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets
@@ -27,9 +32,17 @@ class Pointshape_Processor
 
 };
 
-Pointshape_Processor::Pointshape_Processor(int point_num)
+Pointshape_Processor::Pointshape_Processor(int point_num, float cell_size)
 {
+    m_cell_size = cell_size;
+    base_frame_ = "base_link";
+    point_num_h = point_num;
+    cloud_feature = new Feature[16*point_num_h];
+}
 
+Pointshape_Processor::~Pointshape_Processor()
+{
+    delete [] cloud_feature;
 }
 /**
  * @brief seperate_velodyne_cloud seprate points into 16 vectors sorted by azimuth (one for each altidue form Velodyne16)
@@ -44,7 +57,7 @@ void Pointshape_Processor::seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZ
                            , Feature **feature_sets
                            , pcl::PointCloud<pcl::PointXYZI> intensity_pcl)
 {
-
+    filter_continutiy.set_cell_size(m_cell_size);
     float toDegree = 180/M_PI;
 
     for(int i = 0; i<cloud.points.size(); i++)
@@ -52,9 +65,11 @@ void Pointshape_Processor::seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZ
         float x = cloud.points[i].x;
         float y = cloud.points[i].y;
 
-        // if(x < 0 || abs(y) > 6)
-        //     continue;
+       if(x < 1 || x > 5 || abs(y) > 5)
+           continue;
 
+    //    if(x <  0 || abs(y) > 0.5)
+    //        continue;
         float r = sqrt(x*x + y*y);
         float h = cloud.points[i].z;
 
@@ -101,32 +116,33 @@ void Pointshape_Processor::seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZ
 
 pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const sensor_msgs::PointCloud2ConstPtr &cloud_in, tf::TransformListener* tfListener)
 {
-    pcl::PointCloud<pcl::PointXYZRGB> return_points;
+    pcl::PointCloud<pcl::PointXYZRGB> result, cloud_free, reformed_height;
     sensor_msgs::PointCloud2 cloud_base;
 
     tf::StampedTransform velodyne_to_base;
 
-    string target_name = "/base_link";
-    //string target_name = "/odom";
+    // base_frame_ = "/base_link";
+    // cout << cloud_in->header.frame_id << endl;
+    //string base_frame_ = "/odom";
 
-    //tfListener->waitForTransform(target_name, cloud_in->header.frame_id, ros::Time::now(), ros::Duration(2.0));
+    //tfListener->waitForTransform(base_frame_, cloud_in->header.frame_id, ros::Time::now(), ros::Duration(2.0));
     try {
-        tfListener->lookupTransform(target_name, cloud_in->header.frame_id, ros::Time(0), velodyne_to_base);
+        tfListener->lookupTransform(base_frame_, cloud_in->header.frame_id, ros::Time(0), velodyne_to_base);
     }catch(std::exception & e) {
-        ROS_WARN_STREAM("TF error! " << e.what());
-        return return_points;
+       ROS_WARN_STREAM("TF error! " << e.what());
+        return result;
     }
 
     Eigen::Matrix4f eigen_transform;
     pcl_ros::transformAsMatrix (velodyne_to_base, eigen_transform);
     pcl_ros::transformPointCloud (eigen_transform, *cloud_in, cloud_base);
 
-    cloud_base.header.frame_id = target_name;
+    cloud_base.header.frame_id = base_frame_;
 
     // initialize velodyne group space
     pcl::PointCloud<pcl::PointXYZRGB> velodyne_sets[16];
     Feature **feature_sets = new Feature*[16];
-    //pcl::PointCloud<pcl::PointXYZRGB> feature_sets[16];
+
     for(int i = 0; i<16; i++)
     {
         velodyne_sets[i].points.resize(point_num_h);
@@ -141,7 +157,14 @@ pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const s
             feature_sets[i][j].continuity_prob = 0;
             feature_sets[i][j].cross_section_prob = 0;
             feature_sets[i][j].sum = 0;
-            feature_sets[i][j].reformed_height = 0;
+
+            feature_sets[i][j].mean_height = 0;
+            feature_sets[i][j].mean_slope = 0;
+            feature_sets[i][j].height_variance = 0;
+            feature_sets[i][j].vertical_acc = 0;
+            feature_sets[i][j].roughness = 0;
+            feature_sets[i][j].max_height_diff = 0;
+            // feature_sets[i][j].is_selected = false;
         }
 
     // for velodyne frame, used for point classification
@@ -153,7 +176,7 @@ pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const s
     // for target frame, used for sending result to cost map
     pcl::fromROSMsg(cloud_base, pcl_cloud_base);
     copyPointCloud(pcl_cloud_base, cloud_base_rgb);
-    cloud_base_rgb.header.frame_id = target_name;
+    cloud_base_rgb.header.frame_id = base_frame_;
 
     // get intensity value
     pcl::PointCloud<pcl::PointXYZI> intensity_pcl;
@@ -162,25 +185,34 @@ pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const s
     //seperate_velodyne_cloud(cloud, velodyne_sets, feature_sets);
     seperate_velodyne_cloud(cloud, cloud_base_rgb, velodyne_sets, feature_sets, intensity_pcl);
 
-    pcl::PointCloud<pcl::PointXYZRGB> result, cloud_free;
-
-
-    //////////////////////////////////////////////////////////////////////////////////////////////////
+    // for(int i = 0; i < point_num_h; i++)
+    // {
+    //     if(velodyne_sets[0][i].z != 0)
+    //         cout << velodyne_sets[0][i].z*100/2.54 << endl;
+    // }    
+    // //////////////////////////////////////////////////////////////////////////////////////////////////
     feature_sets = filter_crosssection.filtering_all_sets(velodyne_sets, feature_sets);
-    result       = filter_crosssection.color_all_sets(velodyne_sets, feature_sets);
+    result = filter_crosssection.color_all_sets(velodyne_sets, feature_sets);
 
     feature_sets = filter_continutiy.filtering_all_sets(velodyne_sets, feature_sets);
-    result       = filter_continutiy.color_all_sets(velodyne_sets, feature_sets, cloud_reformed_height);
-    //////////////////////////////////////////////////////////////////////////////////////////////////
+    result       = filter_continutiy.color_all_sets(velodyne_sets, feature_sets, cloud_feature);
+    // //////////////////////////////////////////////////////////////////////////////////////////////////
 
-    cloud_free.header.frame_id = target_name;
-    result.header.frame_id =  target_name;
+    // pcl::PointCloud<pcl::PointXYZRGB> costmap_cloud = generate_costmap_cloud(result, cloud_free);
+
+    // costmap_cloud.header.frame_id = base_frame_;
+    cloud_free.header.frame_id = base_frame_;
+    result.header.frame_id =  base_frame_;
 
     // cout << "frame: " <<result.header.frame_id << endl;
     // publish(pub_ground, costmap_cloud);
     // publish(pub_free, cloud_free);
     // publish(pub_ground_obstacle, result);
 
+    // Eigen::Matrix4f eigen_transform_target;
+    // pcl_ros::transformAsMatrix (base_to_target, eigen_transform_target);
+    // pcl::transformPointCloud(result, result, eigen_transform_target);
+    result.header.frame_id =  base_frame_;
 
     for(int i = 0; i<16; i++)
     {
