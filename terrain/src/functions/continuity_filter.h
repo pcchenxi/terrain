@@ -69,15 +69,15 @@ pcl::PointCloud<pcl::PointXYZRGB> Filter_Continuity::color_one_set(pcl::PointClo
 			float color_b = continuity_prob / threshold_1 * 255;
 			velodyne_sets.points[i].r = 0;
 			velodyne_sets.points[i].g = 0;
-			velodyne_sets.points[i].b = color_b;
+			velodyne_sets.points[i].b = 0;
 			// cout << "color: " << color <<endl;
 		}
 		else if (continuity_prob < threshold_2)                             // 1 for fft[0]   0.1 for fft[1]
 		{
 			float color_g = continuity_prob / threshold_2 * 255;
 			velodyne_sets.points[i].r = 0;
-			velodyne_sets.points[i].g = color_g;
-			velodyne_sets.points[i].b = 255;
+			velodyne_sets.points[i].g = 0;
+			velodyne_sets.points[i].b = 0;
 		}
 		else
 		{
