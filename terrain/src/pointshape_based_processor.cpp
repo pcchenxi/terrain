@@ -70,7 +70,7 @@ void callback_velodyne(const sensor_msgs::PointCloud2ConstPtr &cloud_in)
 {
     pcl::PointCloud<pcl::PointXYZRGB> filtered_single_scan;
     filtered_single_scan = ps_processor->process_velodyne(cloud_in, tfListener);
-    filtered_single_scan.header.frame_id = "base_link";
+    // filtered_single_scan.header.frame_id = "base_link";
 
     publish(pub_ground_obstacle, filtered_single_scan);
 }

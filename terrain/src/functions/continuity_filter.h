@@ -19,6 +19,7 @@ public:
 	int point_num_h;
 	float m_smooth_size;
 	float m_cell_size;
+	float m_max_roughness;
 	ros::Time frame_time;
 
 	Feature* filtering_one_set(pcl::PointCloud<pcl::PointXYZRGB> &velodyne_set, Feature *feature_set);
@@ -44,10 +45,19 @@ pcl::PointCloud<pcl::PointXYZRGB> Filter_Continuity::color_one_set(pcl::PointClo
 {
 	for (int i = 0; i<point_num_h; i++)
 	{
-		if (feature_set[i].radius == 0 || velodyne_sets.points[i].r != 0)
+		if (feature_set[i].radius == 0)
 			continue;
+		
+		if(velodyne_sets.points[i].r != 0)
+		{
+			// velodyne_sets.points[i].z = 255;
+			continue;
+		}
 
-		float continuity_prob = feature_set[i].height_variance;
+		float continuity_prob = feature_set[i].roughness;
+
+		// velodyne_sets.points[i].z = continuity_prob;
+		
 
 		float threshold_1 = 0.4;
 		float threshold_2 = 3.5;
@@ -64,7 +74,7 @@ pcl::PointCloud<pcl::PointXYZRGB> Filter_Continuity::color_one_set(pcl::PointClo
 		}
 		else if (continuity_prob < threshold_2)                             // 1 for fft[0]   0.1 for fft[1]
 		{
-			float color_g = continuity_prob / threshold_2 * 155;
+			float color_g = continuity_prob / threshold_2 * 255;
 			velodyne_sets.points[i].r = 0;
 			velodyne_sets.points[i].g = color_g;
 			velodyne_sets.points[i].b = 255;
@@ -117,6 +127,7 @@ void Filter_Continuity::set_cell_size(float cell_size)
 
 Feature ** Filter_Continuity::filtering_all_sets(pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets, Feature **feature_set, ros::Time time)
 {
+	m_max_roughness = 0;
 	pcl::PointCloud<pcl::PointXYZRGB> result;
 	for (int i = 0; i<15; i++)
 	{
@@ -354,13 +365,13 @@ pcl::PointXYZRGB Filter_Continuity::get_mean_point(Feature *feature_set, pcl::Po
 
 void Filter_Continuity::compute_terrain_feature(Feature *feature_set, pcl::PointCloud<pcl::PointXYZRGB> velodyne_set, int point_index, int end_index)
 {
-	feature_set[point_index].mean_height		= get_mean_height		(feature_set, velodyne_set, point_index, end_index);
-	feature_set[point_index].height_variance	= get_height_variance	(feature_set, velodyne_set, point_index, end_index);
+	// feature_set[point_index].mean_height		= get_mean_height		(feature_set, velodyne_set, point_index, end_index);
+	// feature_set[point_index].height_variance	= get_height_variance	(feature_set, velodyne_set, point_index, end_index);
 	
-	if(feature_set[point_index].height_variance == 0)
-		return;
+	// if(feature_set[point_index].height_variance == 0)
+		// return;
 
-	feature_set[point_index].max_height_diff	= get_height_diff		(feature_set, velodyne_set, point_index, end_index);
+	// feature_set[point_index].max_height_diff	= get_height_diff		(feature_set, velodyne_set, point_index, end_index);
 	feature_set[point_index].mean_slope			= get_mean_slope		(feature_set, velodyne_set, point_index, end_index);
 	feature_set[point_index].roughness			= get_roughness			(feature_set, velodyne_set, point_index, end_index);
 
@@ -368,6 +379,9 @@ void Filter_Continuity::compute_terrain_feature(Feature *feature_set, pcl::Point
 	// cout << feature_set[point_index].roughness << endl;
 	cout << frame_time << " " << velodyne_set.points[point_index].z << " " << feature_set[point_index].mean_height << " " << feature_set[point_index].height_variance << " " 
 	<< feature_set[point_index].mean_slope << " " << feature_set[point_index].max_height_diff << " " << feature_set[point_index].roughness << endl;
+
+	if(m_max_roughness < feature_set[point_index].roughness)
+		m_max_roughness = feature_set[point_index].roughness;
 }
 
 Feature* Filter_Continuity::filtering_one_set(pcl::PointCloud<pcl::PointXYZRGB> &velodyne_set, Feature *feature_set)
@@ -385,8 +399,6 @@ Feature* Filter_Continuity::filtering_one_set(pcl::PointCloud<pcl::PointXYZRGB> 
 		// end_index = i + 11;
 		get_windowboundory(feature_set, velodyne_set, m_cell_size, i, end_index);
 		compute_terrain_feature(feature_set, velodyne_set, i, end_index);
-
-		break;
 	}
 	
 	// cout << endl;

@@ -246,7 +246,7 @@ pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const s
     // Eigen::Matrix4f eigen_transform_target;
     // pcl_ros::transformAsMatrix (base_to_target, eigen_transform_target);
     // pcl::transformPointCloud(result, result, eigen_transform_target);
-    result.header.frame_id =  base_frame_;
+    // result.header.frame_id =  base_frame_;
 
     for(int i = 0; i<16; i++)
     {
