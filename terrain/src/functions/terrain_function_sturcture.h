@@ -21,6 +21,7 @@ struct Feature
   float roughness;
   float max_height_diff;
 
+  float cost;
 };
 
 #endif
