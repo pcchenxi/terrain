@@ -11,6 +11,9 @@ struct Feature
   float intensity;
   float reformed_height;
 
+  int   index_h;
+  int   index_v;
+
 /////////////////////////////////////////////////
   // bool  is_selected;
   float radius;

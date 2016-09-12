@@ -8,7 +8,7 @@
 
 tf::TransformListener* tfListener = NULL;
 
-ros::Publisher  pub_continuity, pub_cross, pub_ground, pub_costmap, pub_ground_obstacle, pub_free;
+ros::Publisher  pub_continuity, pub_cross, pub_ground, pub_costmap, pub_ground_obstacle, pub_free, pub_roughness;
 Pointshape_Processor *ps_processor;
 
 void publish(ros::Publisher pub, pcl::PointCloud<pcl::PointXYZRGB> cloud, int type = 2)
@@ -73,6 +73,7 @@ void callback_velodyne(const sensor_msgs::PointCloud2ConstPtr &cloud_in)
     // filtered_single_scan.header.frame_id = "base_link";
 
     publish(pub_ground_obstacle, filtered_single_scan);
+    publish(pub_roughness, ps_processor->frontp_roughness);
 }
 
 int main(int argc, char** argv){
@@ -93,6 +94,7 @@ int main(int argc, char** argv){
     // pub_cross      = node.advertise<sensor_msgs::PointCloud2>("/cross_section_filtered", 1);
     // pub_ground     = node.advertise<sensor_msgs::PointCloud2>("/velodyne_points_ground", 1);
     pub_ground_obstacle = node.advertise<sensor_msgs::PointCloud2>("/ground_obstacle",1);
+    pub_roughness       = node.advertise<sensor_msgs::PointCloud2>("/velodyne_front_roughness",1);
     // pub_free       = node.advertise<sensor_msgs::PointCloud2>("/velodyne_points_free",1);
 
     // pub_costmap    = node.advertise<sensor_msgs::PointCloud>("/costmap_cloud", 1);

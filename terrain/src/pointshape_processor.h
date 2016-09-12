@@ -19,7 +19,8 @@ class Pointshape_Processor
         string base_frame_;
         Feature *cloud_feature;
 
-        pcl::PointCloud<pcl::PointXYZRGB> cloud_reformed_height;
+        pcl::PointCloud<pcl::PointXYZRGB> frontp_roughness, velodyne_cost;
+        
         Pointshape_Processor(int point_num, float cell_size);
         ~Pointshape_Processor();
         void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
@@ -29,6 +30,8 @@ class Pointshape_Processor
                            , pcl::PointCloud<pcl::PointXYZI> intensity_pcl);
 
         pcl::PointCloud<pcl::PointXYZRGB> process_velodyne(const sensor_msgs::PointCloud2ConstPtr &cloud_in, tf::TransformListener* tfListener);
+
+        void get_robotlocation(float &robot_x, float &robot_y, tf::TransformListener* tfListener);
 
 };
 
@@ -76,9 +79,9 @@ void Pointshape_Processor::seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZ
         if(r < 1.5 || r > 30)
             continue;
 
-        float x_trans = cloud_transformed.points[i].x;
-        float y_trans = cloud_transformed.points[i].y;
-        float r_trans = sqrt(x_trans*x_trans + y_trans*y_trans);
+        // float x_trans = cloud_transformed.points[i].x;
+        // float y_trans = cloud_transformed.points[i].y;
+        // float r_trans = sqrt(x_trans*x_trans + y_trans*y_trans);
 
         double angle_v = atan2(h, r) * toDegree + 15.0;
         double angle_h = (atan2(y, x) + M_PI) * toDegree;
@@ -107,9 +110,26 @@ void Pointshape_Processor::seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZ
             index_h = point_num_h-1;
         }
         velodyne_sets[index_v].points[index_h] = cloud_transformed.points[i];
-        feature_sets[index_v][index_h].radius = r_trans;
+        feature_sets[index_v][index_h].radius = r;
         feature_sets[index_v][index_h].intensity = intensity_pcl.points[i].intensity;
     }
+}
+
+void Pointshape_Processor::get_robotlocation(float &robot_x, float &robot_y, tf::TransformListener* tfListener)
+{
+    robot_x = 0, robot_y = 0;
+    tf::StampedTransform transform;
+    try
+    {
+        //ROS_INFO("Attempting to read pose...");
+        tfListener->lookupTransform("/map","/base_link",ros::Time(0), transform);
+        robot_x = transform.getOrigin().x();
+        robot_y = transform.getOrigin().y();
+    }
+    catch (tf::TransformException ex)
+    {
+        ROS_ERROR("error while reading map fram! %s", ex.what());
+    } 
 }
 
 
@@ -153,9 +173,8 @@ pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const s
         Eigen::Matrix4f eigen_transform;
         pcl_ros::transformAsMatrix (velodyne_to_base, eigen_transform);
         pcl_ros::transformPointCloud (eigen_transform, *cloud_in, cloud_base);
+        cloud_base.header.frame_id = base_frame_;
     }
-
-    cloud_base.header.frame_id = base_frame_;
 
     // initialize velodyne group space
     pcl::PointCloud<pcl::PointXYZRGB> velodyne_sets[16];
@@ -221,11 +240,14 @@ pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const s
     //         cout << velodyne_sets[0][i].z*100/2.54 << endl;
     // }    
     // //////////////////////////////////////////////////////////////////////////////////////////////////
-    feature_sets = filter_crosssection.filtering_all_sets(velodyne_sets, feature_sets);
-    result = filter_crosssection.color_all_sets(velodyne_sets, feature_sets);
+    feature_sets        = filter_crosssection.filtering_all_sets(velodyne_sets, feature_sets);
+    result              = filter_crosssection.color_all_sets(velodyne_sets, feature_sets);
 
-    feature_sets = filter_continutiy.filtering_all_sets(velodyne_sets, feature_sets, cloud_in->header.stamp);
-    result       = filter_continutiy.color_all_sets(velodyne_sets, feature_sets, cloud_feature);
+    feature_sets        = filter_continutiy.filtering_all_sets(velodyne_sets, feature_sets, cloud_in->header.stamp);
+    result              = filter_continutiy.color_all_sets(velodyne_sets, feature_sets, cloud_feature); // all points with z as height
+
+    frontp_roughness    = filter_continutiy.frontp_roughness;   // selected points infront of the robot to show the cost value
+    velodyne_cost       = filter_continutiy.velodyne_cost;      // all points with z as cost 
     // //////////////////////////////////////////////////////////////////////////////////////////////////
 
     // pcl::PointCloud<pcl::PointXYZRGB> costmap_cloud = generate_costmap_cloud(result, cloud_free);
@@ -234,9 +256,18 @@ pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const s
     // cloud_free.header.frame_id = base_frame_;
 
     if(map_avaiable)
+    {    
         result.header.frame_id =  "map";
+        velodyne_cost.header.frame_id = "map";
+        frontp_roughness.header.frame_id = "map";
+    }
     else
+    {    
         result.header.frame_id =  base_frame_;
+        velodyne_cost.header.frame_id = base_frame_;
+        frontp_roughness.header.frame_id = base_frame_;
+    }
+
 
     // cout << "frame: " <<result.header.frame_id << endl;
     // publish(pub_ground, costmap_cloud);
