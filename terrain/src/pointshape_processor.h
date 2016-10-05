@@ -24,7 +24,8 @@ class Pointshape_Processor
         Pointshape_Processor(int point_num, float cell_size);
         ~Pointshape_Processor();
         void seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
-                           , pcl::PointCloud<pcl::PointXYZRGB> cloud_transformed
+                           , pcl::PointCloud<pcl::PointXYZRGB> cloud_base
+                           , pcl::PointCloud<pcl::PointXYZRGB> cloud_map
                            , pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets
                            , Feature **feature_sets
                            , pcl::PointCloud<pcl::PointXYZI> intensity_pcl);
@@ -55,7 +56,8 @@ Pointshape_Processor::~Pointshape_Processor()
  * @param feature_sets
  */
 void Pointshape_Processor::seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZRGB> cloud
-                           , pcl::PointCloud<pcl::PointXYZRGB> cloud_transformed
+                           , pcl::PointCloud<pcl::PointXYZRGB> cloud_base
+                           , pcl::PointCloud<pcl::PointXYZRGB> cloud_map
                            , pcl::PointCloud<pcl::PointXYZRGB> *velodyne_sets
                            , Feature **feature_sets
                            , pcl::PointCloud<pcl::PointXYZI> intensity_pcl)
@@ -109,7 +111,12 @@ void Pointshape_Processor::seperate_velodyne_cloud(pcl::PointCloud<pcl::PointXYZ
             //std::cout << "index_h = " << index_h << std::endl;
             index_h = point_num_h-1;
         }
-        velodyne_sets[index_v].points[index_h] = cloud_transformed.points[i];
+        velodyne_sets[index_v].points[index_h] = cloud_base.points[i];
+
+        feature_sets[index_v][index_h].map_x = cloud_map.points[i].x;
+        feature_sets[index_v][index_h].map_y = cloud_map.points[i].y;
+        feature_sets[index_v][index_h].map_z = cloud_map.points[i].z;
+
         feature_sets[index_v][index_h].radius = r;
         feature_sets[index_v][index_h].intensity = intensity_pcl.points[i].intensity;
     }
@@ -168,7 +175,7 @@ pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const s
         pcl_ros::transformPointCloud (eigen_transform_map, *cloud_in, cloud_map);
         cloud_map.header.frame_id = "map";
     }
-    else
+    // else
     {
         Eigen::Matrix4f eigen_transform;
         pcl_ros::transformAsMatrix (velodyne_to_base, eigen_transform);
@@ -201,6 +208,7 @@ pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const s
             feature_sets[i][j].vertical_acc = 0;
             feature_sets[i][j].roughness = 0;
             feature_sets[i][j].max_height_diff = 0;
+            feature_sets[i][j].roughness = -1;
             // feature_sets[i][j].is_selected = false;
         }
 
@@ -217,7 +225,7 @@ pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const s
         copyPointCloud(pcl_cloud_map, cloud_map_rgb);
         cloud_map_rgb.header.frame_id = "map";
     }
-    else
+    // else
     {
         pcl::fromROSMsg(cloud_base, pcl_cloud_base);
         copyPointCloud(pcl_cloud_base, cloud_base_rgb);
@@ -230,15 +238,11 @@ pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const s
 
     //seperate_velodyne_cloud(cloud, velodyne_sets, feature_sets);
     if(map_avaiable)
-        seperate_velodyne_cloud(cloud, cloud_map_rgb, velodyne_sets, feature_sets, intensity_pcl);
+        seperate_velodyne_cloud(cloud, cloud_base_rgb, cloud_map_rgb, velodyne_sets, feature_sets, intensity_pcl);
     else
-        seperate_velodyne_cloud(cloud, cloud_base_rgb, velodyne_sets, feature_sets, intensity_pcl);
+        seperate_velodyne_cloud(cloud, cloud_base_rgb, cloud_base_rgb, velodyne_sets, feature_sets, intensity_pcl);
 
-    // for(int i = 0; i < point_num_h; i++)
-    // {
-    //     if(velodyne_sets[0][i].z != 0)
-    //         cout << velodyne_sets[0][i].z*100/2.54 << endl;
-    // }    
+
     // //////////////////////////////////////////////////////////////////////////////////////////////////
     feature_sets        = filter_crosssection.filtering_all_sets(velodyne_sets, feature_sets);
     result              = filter_crosssection.color_all_sets(velodyne_sets, feature_sets);
@@ -257,15 +261,15 @@ pcl::PointCloud<pcl::PointXYZRGB> Pointshape_Processor::process_velodyne(const s
 
     if(map_avaiable)
     {    
+        frontp_roughness.header.frame_id = "map";
         result.header.frame_id =  "map";
         velodyne_cost.header.frame_id = "map";
-        frontp_roughness.header.frame_id = "map";
     }
     else
     {    
+        frontp_roughness.header.frame_id = base_frame_;
         result.header.frame_id =  base_frame_;
         velodyne_cost.header.frame_id = base_frame_;
-        frontp_roughness.header.frame_id = base_frame_;
     }
 
 

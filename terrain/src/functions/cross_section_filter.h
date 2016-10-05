@@ -36,14 +36,10 @@ pcl::PointCloud<pcl::PointXYZRGB> Filter_Cross_Section::color_one_set(pcl::Point
         if(feature_set[i].radius == 0)
             continue;
 
-        if(velodyne_sets.points[i].r == 255)
-            continue;
-//        velodyne_sets.points[i].r = 0;
-//        velodyne_sets.points[i].g = 0;
-//        velodyne_sets.points[i].b = 0;
-
-        float cross_section_prob = feature_set[i].cross_section_prob;
-        velodyne_sets.points[i].r = cross_section_prob/max_cross * 255;
+        // float cross_section_prob = feature_set[i].cross_section_prob;
+        // velodyne_sets.points[i].r = cross_section_prob/max_cross * 255;
+        if(feature_set[i].cross_section_prob > 35)
+            velodyne_sets.points[i].r = 255;
     }
 
     return velodyne_sets;
@@ -128,7 +124,8 @@ float Filter_Cross_Section::filtering_one_set(pcl::PointXYZRGB c_point, float c_
 
     // float c_x       = c_point.x;
     // float c_y       = c_point.y;
-    float c_z       = c_point.z;
+    float c_z           = c_point.z;
+    int   obs_count = 0;
 
     for(int i = 0; i < velodyne_set.points.size(); i++ )
     {
@@ -139,40 +136,32 @@ float Filter_Cross_Section::filtering_one_set(pcl::PointXYZRGB c_point, float c_
         float radius     = feature_set[i].radius;
         float diff_r     = abs(radius - c_radius);
 
-        if(diff_r < 0.3 && diff_z_abs > 0.4 && diff_z_abs < 2.0 && diff_z_abs > diff_r)
+        if(diff_r < 0.2 )
         {
-            sum_d = 1;
-            break;
+            obs_count ++;
         }
-        if(diff_r < 0.3 && diff_z < -0.4)
-        {
-            sum_d = 1;
-            break;
-        }
-        if(diff_r < 0.3 && diff_r < 0.01 && feature_set[i].cross_section_prob != 0)
-        {
-            sum_d = 1;
-            break;
-        }
-        // if(diff_r < 0.3 && diff_z_abs < 0.4 && diff_z_abs > 0.2 && diff_z > diff_r)   
+        // if(diff_r < 0.2 && diff_z_abs > 0.5 && diff_z_abs < 2.0 && diff_z_abs > diff_r)
         // {
         //     sum_d = 1;
         //     break;
         // }
-//
-//        //cout << "r1: " << radius << "  r2: " << c_radius << endl;
-//
-//        if(diff_r < 0.5)
-//        {
-//            float diff_h = abs(velodyne_set.points[i].z - c_point.z);
-//            float difficulity = get_difficult_value(diff_h);
-//
-//            sum_d += difficulity;
-//        }
+        // if(diff_r < 0.2 && diff_z < -0.5)
+        // {
+        //     sum_d = 1;
+        //     break;
+        // }
+        // if(diff_r < 0.2 && diff_r < 0.02 && feature_set[i].cross_section_prob != 0)
+        // {
+        //     sum_d = 1;
+        //     break;
+        // }
     }
-
+    // float scale = 1/c_radius
+    sum_d = obs_count * c_radius;
     if(max_cross < sum_d)
         max_cross = sum_d;
 
+    if(sum_d != 0)
+        cout << sum_d << endl;
     return sum_d;
 }
