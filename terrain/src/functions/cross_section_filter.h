@@ -161,7 +161,7 @@ float Filter_Cross_Section::filtering_one_set(pcl::PointXYZRGB c_point, float c_
     if(max_cross < sum_d)
         max_cross = sum_d;
 
-    if(sum_d != 0)
-        cout << sum_d << endl;
+    // if(sum_d != 0)
+    //     cout << sum_d << endl;
     return sum_d;
 }

@@ -84,7 +84,7 @@ int main(int argc, char** argv){
     float cell_size = 0.2;
     node.getParam("/cell_size", cell_size);
 
-    ps_processor = new Pointshape_Processor(360*4, cell_size);
+    ps_processor = new Pointshape_Processor(360*4, cell_size, "map");
 
     // ros::Subscriber sub_velodyne_right = node.subscribe<sensor_msgs::PointCloud2>("/velodyne_points_right", 1, callback_velodyne);
     // ros::Subscriber sub_velodyne_left = node.subscribe<sensor_msgs::PointCloud2>("/velodyne_points_left", 1, callback_velodyne);
